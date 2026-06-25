@@ -244,10 +244,36 @@ def halaman_Rekapitulasi_Presensi():
             st.divider()
             output_all = BytesIO()
             with pd.ExcelWriter(output_all, engine='xlsxwriter') as writer:
-                for dept in dept_list:
-                    df_tab_dl = df_hasil_with_dept[df_hasil_with_dept['Bagian/Dept'] == dept].drop(columns=['Bagian/Dept'])
-                    judul = f"Rekap UMUT - Departemen {dept}\n{periode_str}"
-                    create_excel_sheet(writer, df_tab_dl, dept[:31], judul)
+            used_names = set()
+
+            for dept in dept_list:
+                df_tab_dl = (
+                    df_hasil_with_dept[
+                        df_hasil_with_dept['Bagian/Dept'] == dept
+                    ].drop(columns=['Bagian/Dept'])
+                )
+
+                judul = f"Rekap UMUT - Departemen {dept}\n{periode_str}"
+
+                # Nama sheet maksimal 31 karakter dan harus unik
+                sheet_name = str(dept)[:31]
+
+                original_name = sheet_name
+                counter = 1
+
+                while sheet_name.lower() in used_names:
+                    suffix = f"_{counter}"
+                    sheet_name = original_name[:31 - len(suffix)] + suffix
+                    counter += 1
+
+                used_names.add(sheet_name.lower())
+
+                create_excel_sheet(
+                    writer,
+                    df_tab_dl,
+                    sheet_name,
+                    judul
+                )
             output_all.seek(0)
             st.download_button(
                 label="📥 Download Excel Semua Departemen", data=output_all,
