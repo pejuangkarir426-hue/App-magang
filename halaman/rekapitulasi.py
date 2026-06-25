@@ -242,39 +242,42 @@ def halaman_Rekapitulasi_Presensi():
                                         st.error(f"Terjadi error: {e}")
 
             st.divider()
+
+            # ── FIX: used_names dan loop for berada di LUAR with ExcelWriter,
+            #         lalu output_all.seek(0) dipanggil setelah blok with selesai ──
             output_all = BytesIO()
+            used_names = set()  # <-- dipindah ke sini, sebelum with ExcelWriter
+
             with pd.ExcelWriter(output_all, engine='xlsxwriter') as writer:
-            used_names = set()
+                for dept in dept_list:
+                    df_tab_dl = (
+                        df_hasil_with_dept[
+                            df_hasil_with_dept['Bagian/Dept'] == dept
+                        ].drop(columns=['Bagian/Dept'])
+                    )
 
-            for dept in dept_list:
-                df_tab_dl = (
-                    df_hasil_with_dept[
-                        df_hasil_with_dept['Bagian/Dept'] == dept
-                    ].drop(columns=['Bagian/Dept'])
-                )
+                    judul = f"Rekap UMUT - Departemen {dept}\n{periode_str}"
 
-                judul = f"Rekap UMUT - Departemen {dept}\n{periode_str}"
+                    # Nama sheet maksimal 31 karakter dan harus unik
+                    sheet_name = str(dept)[:31]
+                    original_name = sheet_name
+                    counter = 1
 
-                # Nama sheet maksimal 31 karakter dan harus unik
-                sheet_name = str(dept)[:31]
+                    while sheet_name.lower() in used_names:
+                        suffix = f"_{counter}"
+                        sheet_name = original_name[:31 - len(suffix)] + suffix
+                        counter += 1
 
-                original_name = sheet_name
-                counter = 1
+                    used_names.add(sheet_name.lower())
 
-                while sheet_name.lower() in used_names:
-                    suffix = f"_{counter}"
-                    sheet_name = original_name[:31 - len(suffix)] + suffix
-                    counter += 1
+                    create_excel_sheet(
+                        writer,
+                        df_tab_dl,
+                        sheet_name,
+                        judul
+                    )
 
-                used_names.add(sheet_name.lower())
-
-                create_excel_sheet(
-                    writer,
-                    df_tab_dl,
-                    sheet_name,
-                    judul
-                )
-            output_all.seek(0)
+            output_all.seek(0)  # <-- dipanggil setelah blok with selesai
             st.download_button(
                 label="📥 Download Excel Semua Departemen", data=output_all,
                 file_name=f"rekap_umut_semua_{tgl_awal.strftime('%Y%m%d')}_{tgl_akhir.strftime('%Y%m%d')}.xlsx",
